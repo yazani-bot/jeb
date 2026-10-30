@@ -1,4 +1,4 @@
-import { OP_eval, OP_get } from ".";
+import { OP_eval, OP_get, OP_tbPop, OP_tbPush } from ".";
 import { defineUnwrapper, makeOpcode } from "../define";
 import { ErrnoCode } from "../errno";
 import { JEBError } from "../errors";
@@ -41,7 +41,20 @@ export const loadUnwrappingBuiltins = (vm: JebVM) => {
         pushData(vm, obj);
     }, "Unwraps a reference");
     defineUnwrapper(vm, [MacroWrapper], (vm, { 0: { obj } }) => {
-        pushCommand(vm, OP_eval, undefined);
+        const from = vm.lastCall;
+        if (from) {
+            // The call that just returned is the one that produced this
+            // expansion (normally the macro invocation itself). Evaluate
+            // the expansion under a frame naming it, at its call site, so
+            // that an error thrown by the expanded code mentions the macro
+            // even though the macro itself has already returned.
+            const frameName = from.name === undefined ? "<macro>" : `<macro ${String(from.name)}>`;
+            pushCommand(vm, OP_tbPop);
+            pushCommand(vm, OP_eval, from.location);
+            pushCommand(vm, OP_tbPush, frameName, from.location, false);
+        } else {
+            pushCommand(vm, OP_eval, undefined);
+        }
         pushData(vm, obj);
     }, "Unwraps a macro expansion thing");
     defineUnwrapper(vm, [EmptyArg], () => {

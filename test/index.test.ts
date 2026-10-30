@@ -383,6 +383,35 @@ describe("metaprogramming", () => {
         ])).toBeTrue();
         expect(out).toEqual(["4", "hellohello", "arg evaluated", "arg evaluated", "8"]);
     });
+    testTest(test, "macro expansions are named in tracebacks", vm => {
+        expect.assertions(4);
+        try {
+            run(vm, ["begin",
+                ["define", ["boom"], ["throw", ["err", "boom"]]],
+                ["define", ["twice", [true, "x"]], ["macro", ["list", "add", ["local", "x"], ["local", "x"]]]],
+                ["at", [9, 0], ["twice", ["boom"]]],
+            ]);
+        } catch (err: any) {
+            const leaves = (err.traceback as any[]).filter(n => n.leaf);
+            // the error came from code the macro constructed, and says so
+            expect(err.toString()).toContain("<macro twice>");
+            // the expansion frame sits between the expanded code and the caller,
+            // located at the macro's call site
+            const expansion = leaves.findIndex(n => n.name === "<macro twice>");
+            expect(expansion).toBeGreaterThan(leaves.findIndex(n => n.name === "boom"));
+            expect(leaves[expansion].location).toEqual([9, 0]);
+            // the macro's own call frame was already popped; it is not duplicated
+            expect(leaves.some(n => n.name === "twice")).toBeFalse();
+        }
+    });
+    testTest(test, "macro expansion frames do not leak after a successful expansion", (vm, out) => {
+        expect(run(vm, ["begin",
+            ["define", ["twice", [true, "x"]], ["macro", ["list", "add", ["local", "x"], ["local", "x"]]]],
+            ["print", ["twice", 3]],
+        ])).toBeTrue();
+        expect(out).toEqual(["6"]);
+        expect(rawTraceback(vm)).toEqual([]);
+    });
     testTest(test, "quote/quasiquote", (vm, out) => {
         expect(run(vm, ["begin",
             ["define", "a", 1],
