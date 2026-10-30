@@ -11,6 +11,11 @@ import { Continuation } from "./continuation";
 export interface JEBErrorOptions {
     /** Sub-errors bundled into this error, e.g. several failures reported together. */
     children?: JEBError[];
+    /**
+     * Location of the specific call argument this error blames (see
+     * {@link JEBError.paramLocation}).
+     */
+    paramLocation?: Location;
 }
 
 /**
@@ -28,11 +33,19 @@ export interface JEBErrorContext {
  */
 export class JEBError extends Error {
     readonly children: JEBError[];
+    /**
+     * When set, the VM replaces the location of the innermost traceback
+     * frame with this one as the traceback is attached, so the error points
+     * at the specific argument that was bad instead of at the whole call.
+     * Set from {@link JEBErrorOptions.paramLocation}.
+     */
+    public paramLocation?: Location;
     constructor(readonly code: ErrnoCode, message?: string, readonly options: ErrorOptions & JEBErrorOptions = {}, readonly context: JEBErrorContext = {}, public traceback?: StackTreeNode[]) {
         message ??= ErrnoDesc[code];
         super(message, { cause: options.cause });
         this.name = this.constructor.name;
         this.children = options.children ?? [];
+        this.paramLocation = options.paramLocation;
     }
     toString(): string {
         return `[${ErrnoCode[this.code] ?? this.code}] ${this.message}${this.traceback ? `\ntraceback: ${formatStackTraceCompact(compressStackTree(this.traceback))}` : ""}${this.cause instanceof JEBError ? `\ncaused by: ${this.cause.toString()}${this.children.map(c => c.toString().split("\n").map(l => "  " + l).join("\n")).join("\n\n")}` : ""}`
@@ -141,6 +154,25 @@ export const compressStackTree = (nodes: StackTreeNode[]): StackTreeNode[] => {
     }
     return result;
 }
+
+/**
+ * Returns a copy of the traceback in which the innermost frame's location
+ * is replaced by the given one, so an error can point at the specific
+ * argument that caused it instead of at the whole call (see
+ * {@link JEBError.paramLocation}). Only the single innermost frame is
+ * re-located: if it is folded into a compressed repeat node, that node is
+ * split so the remaining repeats keep their original location.
+ */
+export const blameParameter = (nodes: StackTreeNode[], location: Location): StackTreeNode[] => {
+    const first = nodes[0];
+    if (!first) return nodes;
+    const rest = nodes.slice(1);
+    if (first.leaf) return [createStackLeafNode(first.name, location), ...rest];
+    const blamed = createStackInnerNode(1, blameParameter(first.children, location));
+    return first.count === 1
+        ? [blamed, ...rest]
+        : [blamed, createStackInnerNode(first.count - 1, [...first.children]), ...rest];
+};
 
 const patternsEqual = (
     nodes: StackTreeNode[],

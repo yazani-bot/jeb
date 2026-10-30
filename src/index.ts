@@ -4,6 +4,7 @@ export * from "./builtins";
 export * from "./callable";
 export * from "./continuation";
 export * from "./define";
+export * from "./doargs";
 export * from "./env";
 export * from "./errno";
 export * from "./errnoInheritance";
