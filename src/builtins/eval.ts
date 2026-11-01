@@ -183,7 +183,7 @@ export const B_atLocation = makeJSFun("at", [[true, "pos"], [true, "expr"]], ({ 
     // (such as argument binding) can still attribute the value to pos.
     // If expr does make a call, that call's frame overwrites this when
     // it pops, and it carries pos as its own location anyway.
-    vm.lastCall = { name: "at", location: pos as Location, count: 1, tail: false };
+    vm.lastCall = { name: undefined, location: pos as Location, count: 1, tail: false };
     vm.popCommand(); // This will be the tb_pop pushed by apply above
     pushCommand(vm, OP_eval, pos as Location);
     return expr;

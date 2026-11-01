@@ -166,13 +166,9 @@ export const compressStackTree = (nodes: StackTreeNode[]): StackTreeNode[] => {
 }
 
 /**
- * Returns the traceback with a frame for the blamed parameter added on
- * top (innermost), located at the argument that filled it, so an error
- * can point at the specific argument that caused it as well as at the
- * call itself (see {@link JEBError.paramLocation}). The existing frames
- * are untouched: by the time an error holds its traceback it is no
- * longer in the VM's internal compressed format, so the parameter frame
- * is just a normal leaf frame prepended to it.
+ * Prepends a frame for the blamed parameter located at the argument
+ * that filled it, so an error can point at the specific argument that
+ * caused it as well as at the call itself (see {@link JEBError.paramLocation}).
  */
 export const blameParameter = (nodes: StackTreeNode[], location: Location, param?: Identifier): StackTreeNode[] => {
     return [createStackLeafNode(param === undefined ? "parameter" : `parameter ${String(param)}`, location), ...nodes];
@@ -264,7 +260,7 @@ export const checkNothingOrPush = <T extends JebVM>(vm: T, value: any) => {
  * Pauses the VM while the promise is pending, and then resumes it when it
  * resolves or rejects.
  */
-export const promisifyVM = <T extends JebVM, X>(vm: T, promise: Promise<X>): typeof NOTHING => {
+export const promisifyVM = <T extends JebVM>(vm: T, promise: Promise<any>): typeof NOTHING => {
     vm.paused = true;
     const { promise: finish, resolve } = Promise.withResolvers<void>();
     vm.awaiting = finish;
