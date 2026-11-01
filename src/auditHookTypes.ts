@@ -1,3 +1,4 @@
+import type { JebVM } from "./vm";
 /**
  * Map of the audit events a {@link JebVM} can emit through its event
  * dispatcher, from event name to payload type. These events mark operations

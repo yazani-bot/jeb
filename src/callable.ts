@@ -1,4 +1,5 @@
 import { Block } from "./block";
+import type { NOTHING } from "./define";
 import { ARGUMENT_LOCATIONS } from "./doargs";
 import { type HasDocstring } from "./doc";
 import { ErrnoCode } from "./errno";
@@ -66,7 +67,7 @@ export class JSFun<T extends JebVM, S extends CallableSignature = CallableSignat
             args: {
                 [P in S[number]as P["name"]]: P extends LonghandArgument<any, 0> ? unknown[] : P extends LonghandArgument<any, 1> ? Record<PropertyKey, unknown> : unknown
             } & {
-                [typeof ARGUMENT_LOCATIONS]: Record<S[number]["name"], Location | undefined>
+                [ARGUMENT_LOCATIONS]: Record<S[number]["name"], Location | undefined>
             },
             vm: T,
             location: Location | undefined,
