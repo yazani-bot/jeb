@@ -172,8 +172,7 @@ export const OP_apply = makeOpcode("apply", (vm: JebVM, { 0: argv, 1: location, 
 .throws EINVAL - when the object is not callable
 .throws ERANGE - when the argument count is wrong
 . Pops the top value from the stack and calls it with the provided arguments.
-The arguments expressions are expected to be unevaluated, and the signature of the thing being called will determine whether the argument given is evaluated or not.
-The \`callAt\` frame will be hidden in the actual traceback.`);
+The arguments expressions are expected to be unevaluated, and the signature of the thing being called will determine whether the argument given is evaluated or not.`);
 export const B_atLocation = makeJSFun("at", [[true, "pos"], [true, "expr"]], ({ pos, expr }, vm) => {
     typecheck(pos, [Array], "pos");
     // Remove self frame from here
@@ -185,7 +184,7 @@ export const B_atLocation = makeJSFun("at", [[true, "pos"], [true, "expr"]], ({ 
     `.macro (at location expr)
 ..param {opaque-id} location
 ..param {code} expr
-. Equivalent to \`expr\` as a normal [[eval]]uation, but inserts the metadata of \`location\` into the stack frame to identify the call site itself instead of just the thing that was called.`);
+. Equivalent to \`expr\` as a normal [[eval]]uation, but inserts the metadata of \`location\` into the stack frame to identify the call site itself instead of just the thing that was called. \`at\` frames never appear in tracebacks.`);
 export const B_splat = makeJSFun("splat", ["value", ["kw", false]], ({ value, kw }) => new SplatArg(value, withType(kw, ["boolean"], "kw")),
     `.func (splat arg kw)
 ..param {any[] | object} arg - iterable or object to unpack
@@ -204,7 +203,7 @@ export const B_blank = makeJSFun("blank", [], () => new EmptyArg(),
 .pure
 . Forces the argument slot in which it is placed to use the default value.`);
 
-export const B_option = makeJSFun("blank", ["name"], ({ name }) => new OptionArg(withType(name, ["string"], "name")),
+export const B_option = makeJSFun("option", ["name"], ({ name }) => new OptionArg(withType(name, ["string"], "name")),
     `.func (option name)
 ..param {string} name - The name of the named option
 .pure
