@@ -11,6 +11,16 @@ import { Continuation } from "./continuation";
 export interface JEBErrorOptions {
     /** Sub-errors bundled into this error, e.g. several failures reported together. */
     children?: JEBError[];
+    /**
+     * Location of the specific call argument this error blames (see
+     * {@link JEBError.paramLocation}).
+     */
+    paramLocation?: Location;
+    /**
+     * Name of the parameter this error blames, used to name the frame the
+     * VM adds for it (see {@link JEBError.paramName}).
+     */
+    paramName?: Identifier;
 }
 
 /**
@@ -28,11 +38,24 @@ export interface JEBErrorContext {
  */
 export class JEBError extends Error {
     readonly children: JEBError[];
+    /**
+     * When set, the VM adds a frame for the blamed parameter (named from
+     * {@link JEBError.paramName}) with this location on top of the
+     * traceback as the traceback is attached, so the error points at the
+     * specific argument that was bad as well as at the call itself, whose
+     * frame keeps its own location. Set from
+     * {@link JEBErrorOptions.paramLocation}.
+     */
+    public paramLocation?: Location;
+    /** Name of the parameter blamed by this error, if it blames one. */
+    public paramName?: Identifier;
     constructor(readonly code: ErrnoCode, message?: string, readonly options: ErrorOptions & JEBErrorOptions = {}, readonly context: JEBErrorContext = {}, public traceback?: StackTreeNode[]) {
         message ??= ErrnoDesc[code];
         super(message, { cause: options.cause });
         this.name = this.constructor.name;
         this.children = options.children ?? [];
+        this.paramLocation = options.paramLocation;
+        this.paramName = options.paramName;
     }
     toString(): string {
         return `[${ErrnoCode[this.code] ?? this.code}] ${this.message}${this.traceback ? `\ntraceback: ${formatStackTraceCompact(compressStackTree(this.traceback))}` : ""}${this.cause instanceof JEBError ? `\ncaused by: ${this.cause.toString()}${this.children.map(c => c.toString().split("\n").map(l => "  " + l).join("\n")).join("\n\n")}` : ""}`
@@ -142,6 +165,15 @@ export const compressStackTree = (nodes: StackTreeNode[]): StackTreeNode[] => {
     return result;
 }
 
+/**
+ * Prepends a frame for the blamed parameter located at the argument
+ * that filled it, so an error can point at the specific argument that
+ * caused it as well as at the call itself (see {@link JEBError.paramLocation}).
+ */
+export const blameParameter = (nodes: StackTreeNode[], location: Location, param?: Identifier): StackTreeNode[] => {
+    return [createStackLeafNode(param === undefined ? "parameter" : `parameter ${String(param)}`, location), ...nodes];
+};
+
 const patternsEqual = (
     nodes: StackTreeNode[],
     offset1: number,
@@ -228,7 +260,7 @@ export const checkNothingOrPush = <T extends JebVM>(vm: T, value: any) => {
  * Pauses the VM while the promise is pending, and then resumes it when it
  * resolves or rejects.
  */
-export const promisifyVM = <T extends JebVM, X>(vm: T, promise: Promise<X>): typeof NOTHING => {
+export const promisifyVM = <T extends JebVM>(vm: T, promise: Promise<any>): typeof NOTHING => {
     vm.paused = true;
     const { promise: finish, resolve } = Promise.withResolvers<void>();
     vm.awaiting = finish;

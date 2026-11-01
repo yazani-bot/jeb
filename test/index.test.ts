@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { parse, stringify } from "lib0/json";
-import { ErrnoCode, float, Fun, int, JEBError, JebVM, makeJSFun, OP_shuffle, popData, promisifyVM, pushCommand, pushData, typeMatches, withType } from "../src";
+import { argumentLocation, define, ErrnoCode, float, Fun, int, JEBError, JebVM, makeJSFun, OP_shuffle, parameterError, popData, promisifyVM, pushCommand, pushData, typeMatches, withType } from "../src";
 import { makeTestRun, rawTraceback, run, runAsync } from "../src/indextest";
 
 const testTest = makeTestRun(JebVM);
@@ -1095,6 +1095,76 @@ describe("location tracking", () => {
             expect(e.traceback!.some(e => e.leaf && e.location![0] === 2)).toBeTrue();
             expect(e.traceback!.some(e => e.leaf && e.location![0] === 3)).toBeTrue();
             expect(e.traceback!.some(e => e.leaf && e.location![0] === 4)).toBeTrue();
+        }
+    });
+    testTest(test, "gets parameter blame from callsites", vm => {
+        define(vm, "where", makeJSFun("where", ["x"], args => argumentLocation(args, "x") ?? null, "test where"));
+        expect(run(vm, ["begin",
+            ["define", ["id", "x"], ["local", "x"]],
+            ["where", ["at", [7, 0], ["id", 42]]],
+        ])).toBeTrue();
+        expect(popData(vm)).toEqual([7, 0]);
+        // an argument that makes no call to at() records no location
+        expect(run(vm, ["where", 42])).toBeTrue();
+        expect(popData(vm)).toBeNull();
+        expect(run(vm, ["where", ["at", [9, 0], 42]])).toBeTrue();
+        expect(popData(vm)).toEqual([9, 0]);
+    });
+    testTest(test, "errors can blame a parameter", vm => {
+        define(vm, "needs-string", makeJSFun("needs-string", ["x"], args => {
+            if (typeof args.x !== "string") throw parameterError(args, "x", ErrnoCode.EINVAL, "x must be a string");
+            return args.x;
+        }, "test needs-string"));
+        expect.assertions(4);
+        try {
+            run(vm, ["begin",
+                ["define", ["id", "x"], ["local", "x"]],
+                ["at", [3, 0], ["needs-string", ["at", [7, 0], ["id", 42]]]],
+            ]);
+        } catch (e: any) {
+            expect(e.message).toBe("x must be a string");
+            expect(e.paramLocation).toEqual([7, 0]);
+            // a frame for the parameter sits on top, at the argument's
+            // location; the call's own frame below it keeps the call's
+            const first = e.traceback[0];
+            expect(first.leaf && first.name === "parameter x" && first.location).toEqual([7, 0]);
+            const second = e.traceback[1];
+            expect(second.leaf && second.name === "needs-string" && second.location).toEqual([3, 0]);
+        }
+    });
+    testTest(test, "builtin errors also blame the offending arg", vm => {
+        expect.assertions(3);
+        try {
+            run(vm, ["begin",
+                ["define", ["id", "x"], ["local", "x"]],
+                ["define", ["f", "x"], ["local", "x"]],
+                ["f", ["kw", "x", 1], ["at", [7, 0], ["id", 2]]],
+            ]);
+        } catch (e: any) {
+            expect(e.message).toBe("positional argument can't follow keyword argument");
+            expect(e.paramLocation).toEqual([7, 0]);
+            const first = e.traceback[0];
+            expect(first.leaf && first.name === "parameter" && first.location).toEqual([7, 0]);
+        }
+    });
+    testTest(test, "error blame can go through the default", vm => {
+        define(vm, "needs-string", makeJSFun("needs-string", [["x", ["at", [7, 0], ["local", "hello"]]]], args => {
+            if (typeof args.x !== "string") throw parameterError(args, "x", ErrnoCode.EINVAL, "x must be a string");
+            return args.x;
+        }, "test needs-string"));
+        expect.assertions(4);
+        try {
+            run(vm, ["begin",
+                ["define", "hello", 42],
+                ["at", [3, 0], ["needs-string"]],
+            ]);
+        } catch (e: any) {
+            expect(e.message).toBe("x must be a string");
+            expect(e.paramLocation).toEqual([7, 0]);
+            const first = e.traceback[0];
+            expect(first.leaf && first.name === "parameter x" && first.location).toEqual([7, 0]);
+            const second = e.traceback[1];
+            expect(second.leaf && second.name === "needs-string" && second.location).toEqual([3, 0]);
         }
     });
 });

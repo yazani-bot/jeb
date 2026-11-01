@@ -6,7 +6,7 @@ import { OP_unwrap } from "./builtins/unwrap";
 import { Continuation, DynamicWind } from "./continuation";
 import { Env } from "./env";
 import { ErrnoCode } from "./errno";
-import { createStackInnerNode, createStackLeafNode, JEBError, Location, locationsEqual, StackTreeNode } from "./errors";
+import { blameParameter, createStackInnerNode, createStackLeafNode, JEBError, Location, locationsEqual, StackTreeNode } from "./errors";
 import { ArgcForName, getProtocolHandler, JEBProtocols, theTypeName, typeOf } from "./protocol";
 import { Identifier, Tuple } from "./utils";
 
@@ -58,6 +58,13 @@ export class JebVM<T extends JebVM = any> extends EventDispatcher<JEBAuditEvents
     awaiting: Promise<void> | null = null;
     /** callstack entries */
     tracebackStack!: LinkedList<StackCount>;
+    /**
+     * The call frame most recently popped by {@link popTraceback}: the call
+     * that just returned. Only the single latest frame is kept. Consumers
+     * that run immediately after a call returns (macro expansion, argument
+     * binding) read this to learn which call produced the value at hand.
+     */
+    lastCall: StackCount | undefined = undefined;
     /** Environment that all builtins live in */
     builtinsEnv = this.createEnv();
     /** Protocol implementations registered on this VM, by protocol name */
@@ -181,6 +188,7 @@ export class JebVM<T extends JebVM = any> extends EventDispatcher<JEBAuditEvents
         } catch (e) {
             if (!(e instanceof JEBError)) throw e;
             e.traceback ??= this.tracebackArray();
+            if (e.paramLocation) e.traceback = blameParameter(e.traceback, e.paramLocation, e.paramName);
             this.pushCommand(OP_throw, e);
         }
         return true;
@@ -204,6 +212,7 @@ export class JebVM<T extends JebVM = any> extends EventDispatcher<JEBAuditEvents
     reset() {
         this.paused = false;
         this.commandStack = this.dataStack = this.tracebackStack = null;
+        this.lastCall = undefined;
         this.currentEnv = this.createEnv(this.builtinsEnv);
         this.curDynamicWind = new DynamicWind(this as any as T);
         this.error = undefined;
@@ -277,6 +286,7 @@ export class JebVM<T extends JebVM = any> extends EventDispatcher<JEBAuditEvents
 
         // drop all TCO'ed frames
         if (dropTail) while (cur && cur.value.tail) {
+            this.lastCall = cur.value;
             cur = cur.next;
         }
 
@@ -285,6 +295,8 @@ export class JebVM<T extends JebVM = any> extends EventDispatcher<JEBAuditEvents
             this.tracebackStack = null;
             return;
         }
+
+        this.lastCall = cur.value;
 
         // normal frame pop
         if (cur.value.count > 1) {
