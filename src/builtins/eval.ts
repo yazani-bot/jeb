@@ -204,7 +204,7 @@ export const B_blank = makeJSFun("blank", [], () => new EmptyArg(),
 .pure
 . Forces the argument slot in which it is placed to use the default value.`);
 
-export const B_option = makeJSFun("blank", ["name"], ({ name }) => new OptionArg(withType(name, ["string"], "name")),
+export const B_option = makeJSFun("option", ["name"], ({ name }) => new OptionArg(withType(name, ["string"], "name")),
     `.func (option name)
 ..param {string} name - The name of the named option
 .pure
