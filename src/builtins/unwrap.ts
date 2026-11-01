@@ -47,12 +47,18 @@ export const loadUnwrappingBuiltins = (vm: JebVM) => {
             // expansion (normally the macro invocation itself). Evaluate
             // the expansion under a frame naming it, at its call site, so
             // that an error thrown by the expanded code mentions the macro
-            // even though the macro itself has already returned.
+            // even though the macro itself has already returned. The extra
+            // OP_unwrap after the evaluation unwraps the expansion's own
+            // result while the call that produced it is still the last
+            // call, so an expansion that is itself a macro call gets its
+            // own nested frame instead of escaping to an outer consumer.
             const frameName = from.name === undefined ? "<macro>" : `<macro ${String(from.name)}>`;
             pushCommand(vm, OP_tbPop);
+            pushCommand(vm, OP_unwrap, []);
             pushCommand(vm, OP_eval, from.location);
             pushCommand(vm, OP_tbPush, frameName, from.location, false);
         } else {
+            pushCommand(vm, OP_unwrap, []);
             pushCommand(vm, OP_eval, undefined);
         }
         pushData(vm, obj);

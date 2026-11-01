@@ -404,6 +404,25 @@ describe("metaprogramming", () => {
             expect(leaves.some(n => n.name === "twice")).toBeFalse();
         }
     });
+    testTest(test, "macro expansions of macro calls nest their frames", vm => {
+        expect.assertions(3);
+        try {
+            run(vm, ["begin",
+                ["define", ["boom"], ["throw", ["err", "boom"]]],
+                ["define", ["inner"], ["macro", ["list", ["quote", "boom"]]]],
+                ["define", ["outer"], ["macro", ["list", ["quote", "inner"]]]],
+                ["at", [9, 0], ["outer"]],
+            ]);
+        } catch (err: any) {
+            const leaves = (err.traceback as any[]).filter(n => n.leaf);
+            // each expansion gets its own frame, nested, at the call site
+            const inner = leaves.findIndex(n => n.name === "<macro inner>");
+            const outer = leaves.findIndex(n => n.name === "<macro outer>");
+            expect(inner).toBeGreaterThan(leaves.findIndex(n => n.name === "boom"));
+            expect(outer).toBeGreaterThan(inner);
+            expect(leaves[inner].location).toEqual([9, 0]);
+        }
+    });
     testTest(test, "macro expansion frames do not leak after a successful expansion", (vm, out) => {
         expect(run(vm, ["begin",
             ["define", ["twice", [true, "x"]], ["macro", ["list", "add", ["local", "x"], ["local", "x"]]]],
