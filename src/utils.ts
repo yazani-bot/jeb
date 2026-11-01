@@ -25,6 +25,10 @@ export type DropFirst<T extends any[]> = T extends [any, ...infer Rest] ? Rest :
 
 /**
  * A variable name: either a string, or a symbol (as produced by `gensym`).
+ *
+ * Note that when `Identifier`s are used as object keys, you should use
+ * `Reflect.ownKeys()` instead of `Object.keys()` since the latter only returns
+ * the string properties and skips symbols.
  */
 export type Identifier = string | symbol;
 /**
