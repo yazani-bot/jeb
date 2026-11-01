@@ -1104,9 +1104,11 @@ describe("location tracking", () => {
             ["where", ["at", [7, 0], ["id", 42]]],
         ])).toBeTrue();
         expect(popData(vm)).toEqual([7, 0]);
-        // an argument that makes no call records no location
+        // an argument that makes no call to at() records no location
         expect(run(vm, ["where", 42])).toBeTrue();
         expect(popData(vm)).toBeNull();
+        expect(run(vm, ["where", ["at", [9, 0], 42]])).toBeTrue();
+        expect(popData(vm)).toEqual([9, 0]);
     });
     testTest(test, "errors can blame a parameter's location", vm => {
         define(vm, "needs-string", makeJSFun("needs-string", ["x"], args => {
