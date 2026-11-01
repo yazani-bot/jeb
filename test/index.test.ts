@@ -404,6 +404,19 @@ describe("metaprogramming", () => {
             expect(leaves.some(n => n.name === "twice")).toBeFalse();
         }
     });
+    testTest(test, "macro expansions evaluating to references are not unwrapped", vm => {
+        // the expansion evaluates to a ReferenceWrapper, which set's
+        // ref-flagged parameter must receive intact; expanding the
+        // expansion's result may only expand further macro expansions,
+        // never dereference (or otherwise unwrap) the value
+        expect(run(vm, ["begin",
+            ["define", ["m"], ["macro", ["list", ["quote", "local"], ["quote", "x"]]]],
+            ["letIn", "x", 1],
+            ["set", ["m"], 42],
+            ["local", "x"],
+        ])).toBeTrue();
+        expect(popData(vm)).toBe(42);
+    });
     testTest(test, "macro expansions of macro calls nest their frames", vm => {
         expect.assertions(3);
         try {
