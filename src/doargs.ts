@@ -15,9 +15,10 @@ import { EmptyArg, KeywordArg, OptionArg, SplatArg } from "./wrapper";
  * Key under which the finished arguments object carries the source
  * locations of its parameters (see {@link argumentLocation}): a record
  * from parameter name to the location of the outermost call made while
- * evaluating the argument that filled it (which is the location an `at`
- * form heading the argument attaches to it). Only parameters whose
- * argument evaluation actually made a located call have an entry.
+ * evaluating whatever filled it -- a given argument, or the parameter's
+ * default expression (which is the location an `at` form heading it
+ * attaches to it). Only parameters whose filling evaluation actually
+ * made a located call have an entry.
  */
 export const ARGUMENT_LOCATIONS: unique symbol = Symbol("jeb.argumentLocations");
 
@@ -154,16 +155,6 @@ export class DoargsState {
     }
 
     /**
-     * The location to attribute to the value currently being stored: the
-     * location observed for it, unless the value came from evaluating a
-     * default expression (the given arguments are exhausted), in which
-     * case there is no argument to attribute it to.
-     */
-    #observedLocation(loc: Location | undefined) {
-        return this.#rawArgsIndex < this.#givenArgs.length ? loc : undefined;
-    }
-
-    /**
      * Runs the function, tagging any {@link JEBError} it throws with the
      * given location (if the error does not already blame a location), so
      * binding errors point at the offending argument.
@@ -195,8 +186,10 @@ export class DoargsState {
             // otherwise it returns the value as-is
             if (argValue === NOTHING) return;
             // argLocation is the location observed for this value while it
-            // was being evaluated (only present on a resumption)
-            const loc = state.#observedLocation(first ? undefined : argLocation);
+            // was being evaluated (only present on a resumption); it is
+            // recorded for the parameter whether the value came from a
+            // given argument or from the parameter's default expression
+            const loc = first ? undefined : argLocation;
             const newState = state.#blame(() => state.#storeArgumentAndAdvance(vm, argValue, loc), loc);
             if (newState === NOTHING) return;
             state = newState;

@@ -1141,6 +1141,24 @@ describe("location tracking", () => {
             expect(e.paramLocation).toEqual([7, 0]);
         }
     });
+    testTest(test, "errors can blame a parameter whose value came from its default", vm => {
+        define(vm, "needs-string", makeJSFun("needs-string", [["x", ["at", [7, 0], ["id", 42]]]], (args) => {
+            if (typeof args.x !== "string") throw parameterError(args, "x", ErrnoCode.EINVAL, "x must be a string");
+            return args.x;
+        }, "test needs-string"));
+        expect.assertions(3);
+        try {
+            run(vm, ["begin",
+                ["define", ["id", "x"], ["local", "x"]],
+                ["at", [3, 0], ["needs-string"]],
+            ]);
+        } catch (e: any) {
+            expect(e.message).toBe("x must be a string");
+            expect(e.paramLocation).toEqual([7, 0]);
+            const first = e.traceback[0];
+            expect(first.leaf && first.name === "needs-string" && first.location).toEqual([7, 0]);
+        }
+    });
 });
 
 testTest(test, "async test", async vm => {
