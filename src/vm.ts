@@ -6,7 +6,7 @@ import { OP_unwrap } from "./builtins/unwrap";
 import { Continuation, DynamicWind } from "./continuation";
 import { Env } from "./env";
 import { ErrnoCode } from "./errno";
-import { createStackInnerNode, createStackLeafNode, JEBError, Location, locationsEqual, StackTreeNode } from "./errors";
+import { blameParameter, createStackInnerNode, createStackLeafNode, JEBError, Location, locationsEqual, StackTreeNode } from "./errors";
 import { ArgcForName, getProtocolHandler, JEBProtocols, theTypeName, typeOf } from "./protocol";
 import { Identifier, Tuple } from "./utils";
 
@@ -188,6 +188,7 @@ export class JebVM<T extends JebVM = any> extends EventDispatcher<JEBAuditEvents
         } catch (e) {
             if (!(e instanceof JEBError)) throw e;
             e.traceback ??= this.tracebackArray();
+            if (e.paramLocation) e.traceback = blameParameter(e.traceback, e.paramLocation, e.paramName);
             this.pushCommand(OP_throw, e);
         }
         return true;

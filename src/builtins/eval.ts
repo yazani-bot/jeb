@@ -172,12 +172,18 @@ export const OP_apply = makeOpcode("apply", (vm: JebVM, { 0: argv, 1: location, 
 .throws EINVAL - when the object is not callable
 .throws ERANGE - when the argument count is wrong
 . Pops the top value from the stack and calls it with the provided arguments.
-The arguments expressions are expected to be unevaluated, and the signature of the thing being called will determine whether the argument given is evaluated or not.
-The \`callAt\` frame will be hidden in the actual traceback.`);
+The arguments expressions are expected to be unevaluated, and the signature of the thing being called will determine whether the argument given is evaluated or not.`);
 export const B_atLocation = makeJSFun("at", [[true, "pos"], [true, "expr"]], ({ pos, expr }, vm) => {
     typecheck(pos, [Array], "pos");
     // Remove self frame from here
     vm.popTraceback(false); // don't drop tail call, just in case this is in tail position
+    // The value this form produces is located at pos, even if evaluating
+    // expr makes no call at all (e.g. it is a constant): record that in
+    // the last-call slot, so a consumer resuming after the evaluation
+    // (such as argument binding) can still attribute the value to pos.
+    // If expr does make a call, that call's frame overwrites this when
+    // it pops, and it carries pos as its own location anyway.
+    vm.lastCall = { name: undefined, location: pos as Location, count: 1, tail: false };
     vm.popCommand(); // This will be the tb_pop pushed by apply above
     pushCommand(vm, OP_eval, pos as Location);
     return expr;
@@ -185,7 +191,7 @@ export const B_atLocation = makeJSFun("at", [[true, "pos"], [true, "expr"]], ({ 
     `.macro (at location expr)
 ..param {opaque-id} location
 ..param {code} expr
-. Equivalent to \`expr\` as a normal [[eval]]uation, but inserts the metadata of \`location\` into the stack frame to identify the call site itself instead of just the thing that was called.`);
+. Equivalent to \`expr\` as a normal [[eval]]uation, but inserts the metadata of \`location\` into the stack frame to identify the call site itself instead of just the thing that was called. \`at\` frames never appear in tracebacks.`);
 export const B_splat = makeJSFun("splat", ["value", ["kw", false]], ({ value, kw }) => new SplatArg(value, withType(kw, ["boolean"], "kw")),
     `.func (splat arg kw)
 ..param {any[] | object} arg - iterable or object to unpack
