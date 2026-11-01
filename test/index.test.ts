@@ -410,7 +410,7 @@ describe("metaprogramming", () => {
         // expansion's result may only expand further macro expansions,
         // never dereference (or otherwise unwrap) the value
         expect(run(vm, ["begin",
-            ["define", ["m"], ["macro", ["list", ["quote", "local"], ["quote", "x"]]]],
+            ["define", ["m"], ["macro", ["list", "local", "x"]]],
             ["letIn", "x", 1],
             ["set", ["m"], 42],
             ["local", "x"],
@@ -422,8 +422,8 @@ describe("metaprogramming", () => {
         try {
             run(vm, ["begin",
                 ["define", ["boom"], ["throw", ["err", "boom"]]],
-                ["define", ["inner"], ["macro", ["list", ["quote", "boom"]]]],
-                ["define", ["outer"], ["macro", ["list", ["quote", "inner"]]]],
+                ["define", ["inner"], ["macro", ["list", "boom"]]],
+                ["define", ["outer"], ["macro", ["list", "inner"]]],
                 ["at", [9, 0], ["outer"]],
             ]);
         } catch (err: any) {

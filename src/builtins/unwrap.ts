@@ -22,35 +22,19 @@ export const OP_wrap = makeOpcode("wrap", (vm, args: WrapArg<any>) => {
 .param {any} args... - the parameters to pass into the constructor after the object
 .sed obj -- wrapped
 . Wraps the object in the given wrapper class.`);
-export const OP_unwrap = makeOpcode("unwrap", (vm, { 0: dontUnwrap }: [string[]]) => {
+export const OP_unwrap = makeOpcode("unwrap", (vm, { 0: flags, 1: only }: [string[], only?: boolean]) => {
     const top = peekData(vm);
-    if (top instanceof Wrapper && !dontUnwrap.includes(top.flag)) {
+    if (top instanceof Wrapper && !flags.includes(top.flag) === !only) {
         popData(vm);
-        pushCommand(vm, OP_unwrap, dontUnwrap);
+        pushCommand(vm, OP_unwrap, flags, only);
         vm.getProtocol(false, true, "unwrap", [top]).run(vm, [top]);
     }
 },
-    `.imm dontUnwrap
-.param {string[]} dontUnwrap
+    `.imm flags only
+.param {string[]} flags
+.param {boolean?} [only=false]
 .sed value -- unwrapped
-. Unwraps all wrappers from the value, unless the value's wrapper has a tag in the given list of \`dontUnwrap\`.`);
-
-/**
- * Like {@link OP_unwrap}, but only unwraps {@link MacroWrapper}s, leaving
- * every other wrapper untouched. Used after evaluating a macro expansion:
- * if the expansion's value is itself a macro expansion it is expanded in
- * turn, but any other wrapper (e.g. a reference) belongs to the consumer
- * the value is ultimately headed for, whose own unwrapping -- with its
- * `dontUnwrap` flags -- decides what happens to it.
- */
-const OP_unwrap_macro = makeOpcode(null, (vm) => {
-    const top = peekData(vm);
-    if (top instanceof MacroWrapper) {
-        popData(vm);
-        pushCommand(vm, OP_unwrap_macro);
-        vm.getProtocol(false, true, "unwrap", [top]).run(vm, [top]);
-    }
-}, null);
+. Unwraps all wrappers from the value, when the value's wrapper has a tag in the given list of \`flags\` (when \`only\` is true) or when the value's wrapper has a flag *not* in the list of \`flags\` (when \`only\` is false).`);
 
 export const loadUnwrappingBuiltins = (vm: JebVM) => {
     defineUnwrapper(vm, [ReferenceWrapper], (vm, { 0: { obj } }) => {
@@ -73,11 +57,11 @@ export const loadUnwrappingBuiltins = (vm: JebVM) => {
             // left for that consumer to unwrap (or not) as it sees fit.
             const frameName = from.name === undefined ? "<macro>" : `<macro ${String(from.name)}>`;
             pushCommand(vm, OP_tbPop);
-            pushCommand(vm, OP_unwrap_macro);
+            pushCommand(vm, OP_unwrap, ["macro"], true);
             pushCommand(vm, OP_eval, from.location);
             pushCommand(vm, OP_tbPush, frameName, from.location, false);
         } else {
-            pushCommand(vm, OP_unwrap_macro);
+            pushCommand(vm, OP_unwrap, ["macro"], true);
             pushCommand(vm, OP_eval, undefined);
         }
         pushData(vm, obj);
