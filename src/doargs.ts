@@ -31,12 +31,13 @@ export const argumentLocation = (args: Record<string, any>, param: Identifier): 
 
 /**
  * Builds an error blaming the named parameter: if the argument that filled
- * it carried a location (see {@link argumentLocation}), the VM points the
- * error's innermost traceback frame at that location instead of at the
- * whole call site (see {@link JEBError.paramLocation}).
+ * it carried a location (see {@link argumentLocation}), the VM adds a
+ * `parameter <name>` frame at that location on top of the error's
+ * traceback, above the call's own frame (see
+ * {@link JEBError.paramLocation}).
  */
 export const parameterError = (args: Record<string, any>, param: Identifier, code: ErrnoCode, message: string): JEBError =>
-    new JEBError(code, message, { paramLocation: argumentLocation(args, param) });
+    new JEBError(code, message, { paramLocation: argumentLocation(args, param), paramName: param });
 
 /**
  * Records the given parameter locations on a finished arguments object

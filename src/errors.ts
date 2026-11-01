@@ -16,6 +16,11 @@ export interface JEBErrorOptions {
      * {@link JEBError.paramLocation}).
      */
     paramLocation?: Location;
+    /**
+     * Name of the parameter this error blames, used to name the frame the
+     * VM adds for it (see {@link JEBError.paramName}).
+     */
+    paramName?: Identifier;
 }
 
 /**
@@ -34,18 +39,23 @@ export interface JEBErrorContext {
 export class JEBError extends Error {
     readonly children: JEBError[];
     /**
-     * When set, the VM replaces the location of the innermost traceback
-     * frame with this one as the traceback is attached, so the error points
-     * at the specific argument that was bad instead of at the whole call.
-     * Set from {@link JEBErrorOptions.paramLocation}.
+     * When set, the VM adds a frame for the blamed parameter (named from
+     * {@link JEBError.paramName}) with this location on top of the
+     * traceback as the traceback is attached, so the error points at the
+     * specific argument that was bad as well as at the call itself, whose
+     * frame keeps its own location. Set from
+     * {@link JEBErrorOptions.paramLocation}.
      */
     public paramLocation?: Location;
+    /** Name of the parameter blamed by this error, if it blames one. */
+    public paramName?: Identifier;
     constructor(readonly code: ErrnoCode, message?: string, readonly options: ErrorOptions & JEBErrorOptions = {}, readonly context: JEBErrorContext = {}, public traceback?: StackTreeNode[]) {
         message ??= ErrnoDesc[code];
         super(message, { cause: options.cause });
         this.name = this.constructor.name;
         this.children = options.children ?? [];
         this.paramLocation = options.paramLocation;
+        this.paramName = options.paramName;
     }
     toString(): string {
         return `[${ErrnoCode[this.code] ?? this.code}] ${this.message}${this.traceback ? `\ntraceback: ${formatStackTraceCompact(compressStackTree(this.traceback))}` : ""}${this.cause instanceof JEBError ? `\ncaused by: ${this.cause.toString()}${this.children.map(c => c.toString().split("\n").map(l => "  " + l).join("\n")).join("\n\n")}` : ""}`
@@ -156,22 +166,16 @@ export const compressStackTree = (nodes: StackTreeNode[]): StackTreeNode[] => {
 }
 
 /**
- * Returns a copy of the traceback in which the innermost frame's location
- * is replaced by the given one, so an error can point at the specific
- * argument that caused it instead of at the whole call (see
- * {@link JEBError.paramLocation}). Only the single innermost frame is
- * re-located: if it is folded into a compressed repeat node, that node is
- * split so the remaining repeats keep their original location.
+ * Returns the traceback with a frame for the blamed parameter added on
+ * top (innermost), located at the argument that filled it, so an error
+ * can point at the specific argument that caused it as well as at the
+ * call itself (see {@link JEBError.paramLocation}). The existing frames
+ * are untouched: by the time an error holds its traceback it is no
+ * longer in the VM's internal compressed format, so the parameter frame
+ * is just a normal leaf frame prepended to it.
  */
-export const blameParameter = (nodes: StackTreeNode[], location: Location): StackTreeNode[] => {
-    const first = nodes[0];
-    if (!first) return nodes;
-    const rest = nodes.slice(1);
-    if (first.leaf) return [createStackLeafNode(first.name, location), ...rest];
-    const blamed = createStackInnerNode(1, blameParameter(first.children, location));
-    return first.count === 1
-        ? [blamed, ...rest]
-        : [blamed, createStackInnerNode(first.count - 1, [...first.children]), ...rest];
+export const blameParameter = (nodes: StackTreeNode[], location: Location, param?: Identifier): StackTreeNode[] => {
+    return [createStackLeafNode(param === undefined ? "parameter" : `parameter ${String(param)}`, location), ...nodes];
 };
 
 const patternsEqual = (

@@ -1113,7 +1113,7 @@ describe("location tracking", () => {
             if (typeof args.x !== "string") throw parameterError(args, "x", ErrnoCode.EINVAL, "x must be a string");
             return args.x;
         }, "test needs-string"));
-        expect.assertions(3);
+        expect.assertions(4);
         try {
             run(vm, ["begin",
                 ["define", ["id", "x"], ["local", "x"]],
@@ -1122,14 +1122,16 @@ describe("location tracking", () => {
         } catch (e: any) {
             expect(e.message).toBe("x must be a string");
             expect(e.paramLocation).toEqual([7, 0]);
-            // the innermost frame (the needs-string call itself) points at
-            // the argument's location, not the call's
+            // a frame for the parameter sits on top, at the argument's
+            // location; the call's own frame below it keeps the call's
             const first = e.traceback[0];
-            expect(first.leaf && first.name === "needs-string" && first.location).toEqual([7, 0]);
+            expect(first.leaf && first.name === "parameter x" && first.location).toEqual([7, 0]);
+            const second = e.traceback[1];
+            expect(second.leaf && second.name === "needs-string" && second.location).toEqual([3, 0]);
         }
     });
     testTest(test, "binding errors blame the offending argument", vm => {
-        expect.assertions(2);
+        expect.assertions(3);
         try {
             run(vm, ["begin",
                 ["define", ["id", "x"], ["local", "x"]],
@@ -1139,6 +1141,8 @@ describe("location tracking", () => {
         } catch (e: any) {
             expect(e.message).toBe("positional argument can't follow keyword argument");
             expect(e.paramLocation).toEqual([7, 0]);
+            const first = e.traceback[0];
+            expect(first.leaf && first.name === "parameter" && first.location).toEqual([7, 0]);
         }
     });
     testTest(test, "errors can blame a parameter whose value came from its default", vm => {
@@ -1146,7 +1150,7 @@ describe("location tracking", () => {
             if (typeof args.x !== "string") throw parameterError(args, "x", ErrnoCode.EINVAL, "x must be a string");
             return args.x;
         }, "test needs-string"));
-        expect.assertions(3);
+        expect.assertions(4);
         try {
             run(vm, ["begin",
                 ["define", ["id", "x"], ["local", "x"]],
@@ -1156,7 +1160,9 @@ describe("location tracking", () => {
             expect(e.message).toBe("x must be a string");
             expect(e.paramLocation).toEqual([7, 0]);
             const first = e.traceback[0];
-            expect(first.leaf && first.name === "needs-string" && first.location).toEqual([7, 0]);
+            expect(first.leaf && first.name === "parameter x" && first.location).toEqual([7, 0]);
+            const second = e.traceback[1];
+            expect(second.leaf && second.name === "needs-string" && second.location).toEqual([3, 0]);
         }
     });
 });

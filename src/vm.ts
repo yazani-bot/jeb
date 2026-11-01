@@ -188,7 +188,7 @@ export class JebVM<T extends JebVM = any> extends EventDispatcher<JEBAuditEvents
         } catch (e) {
             if (!(e instanceof JEBError)) throw e;
             e.traceback ??= this.tracebackArray();
-            if (e.paramLocation) e.traceback = blameParameter(e.traceback, e.paramLocation);
+            if (e.paramLocation) e.traceback = blameParameter(e.traceback, e.paramLocation, e.paramName);
             this.pushCommand(OP_throw, e);
         }
         return true;
