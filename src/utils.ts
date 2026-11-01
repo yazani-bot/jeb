@@ -1,4 +1,5 @@
 import { isString } from "lib0/function";
+import { gensym } from "./env";
 
 /**
  * A tuple of exactly `N` elements of type `T` (or a plain `T[]` when `N` is
@@ -24,7 +25,7 @@ export type UnionPermutations<U, L extends number> = NoDuplicateElements<Combina
 export type DropFirst<T extends any[]> = T extends [any, ...infer Rest] ? Rest : [];
 
 /**
- * A variable name: either a string, or a symbol (as produced by `gensym`).
+ * A variable name: either a string, or a symbol (as produced by {@link gensym}).
  *
  * Note that when `Identifier`s are used as object keys, you should use
  * `Reflect.ownKeys()` instead of `Object.keys()` since the latter only returns
