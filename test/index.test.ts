@@ -1097,7 +1097,7 @@ describe("location tracking", () => {
             expect(e.traceback!.some(e => e.leaf && e.location![0] === 4)).toBeTrue();
         }
     });
-    testTest(test, "argument locations are recorded from the argument's own calls", vm => {
+    testTest(test, "gets parameter blame from callsites", vm => {
         define(vm, "where", makeJSFun("where", ["x"], args => argumentLocation(args, "x") ?? null, "test where"));
         expect(run(vm, ["begin",
             ["define", ["id", "x"], ["local", "x"]],
@@ -1110,7 +1110,7 @@ describe("location tracking", () => {
         expect(run(vm, ["where", ["at", [9, 0], 42]])).toBeTrue();
         expect(popData(vm)).toEqual([9, 0]);
     });
-    testTest(test, "errors can blame a parameter's location", vm => {
+    testTest(test, "errors can blame a parameter", vm => {
         define(vm, "needs-string", makeJSFun("needs-string", ["x"], args => {
             if (typeof args.x !== "string") throw parameterError(args, "x", ErrnoCode.EINVAL, "x must be a string");
             return args.x;
@@ -1132,7 +1132,7 @@ describe("location tracking", () => {
             expect(second.leaf && second.name === "needs-string" && second.location).toEqual([3, 0]);
         }
     });
-    testTest(test, "binding errors blame the offending argument", vm => {
+    testTest(test, "builtin errors also blame the offending arg", vm => {
         expect.assertions(3);
         try {
             run(vm, ["begin",
@@ -1147,15 +1147,15 @@ describe("location tracking", () => {
             expect(first.leaf && first.name === "parameter" && first.location).toEqual([7, 0]);
         }
     });
-    testTest(test, "errors can blame a parameter whose value came from its default", vm => {
-        define(vm, "needs-string", makeJSFun("needs-string", [["x", ["at", [7, 0], ["id", 42]]]], args => {
+    testTest(test, "error blame can go through the default", vm => {
+        define(vm, "needs-string", makeJSFun("needs-string", [["x", ["at", [7, 0], ["local", "hello"]]]], args => {
             if (typeof args.x !== "string") throw parameterError(args, "x", ErrnoCode.EINVAL, "x must be a string");
             return args.x;
         }, "test needs-string"));
         expect.assertions(4);
         try {
             run(vm, ["begin",
-                ["define", ["id", "x"], ["local", "x"]],
+                ["define", "hello", 42],
                 ["at", [3, 0], ["needs-string"]],
             ]);
         } catch (e: any) {
