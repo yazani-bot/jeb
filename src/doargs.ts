@@ -20,7 +20,7 @@ import { EmptyArg, KeywordArg, OptionArg, SplatArg } from "./wrapper";
  * attaches to it). Only parameters whose filling evaluation actually
  * made a located call have an entry.
  */
-export const ARGUMENT_LOCATIONS = Symbol("jeb.argumentLocations");
+export const ARGUMENT_LOCATIONS: unique symbol = Symbol("jeb.argumentLocations");
 
 /**
  * The location of the argument that filled the named parameter, as

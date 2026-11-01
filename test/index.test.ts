@@ -1098,7 +1098,7 @@ describe("location tracking", () => {
         }
     });
     testTest(test, "argument locations are recorded from the argument's own calls", vm => {
-        define(vm, "where", makeJSFun("where", ["x"], (args) => argumentLocation(args, "x") ?? null, "test where"));
+        define(vm, "where", makeJSFun("where", ["x"], args => argumentLocation(args, "x") ?? null, "test where"));
         expect(run(vm, ["begin",
             ["define", ["id", "x"], ["local", "x"]],
             ["where", ["at", [7, 0], ["id", 42]]],
@@ -1109,7 +1109,7 @@ describe("location tracking", () => {
         expect(popData(vm)).toBeNull();
     });
     testTest(test, "errors can blame a parameter's location", vm => {
-        define(vm, "needs-string", makeJSFun("needs-string", ["x"], (args) => {
+        define(vm, "needs-string", makeJSFun("needs-string", ["x"], args => {
             if (typeof args.x !== "string") throw parameterError(args, "x", ErrnoCode.EINVAL, "x must be a string");
             return args.x;
         }, "test needs-string"));
@@ -1142,7 +1142,7 @@ describe("location tracking", () => {
         }
     });
     testTest(test, "errors can blame a parameter whose value came from its default", vm => {
-        define(vm, "needs-string", makeJSFun("needs-string", [["x", ["at", [7, 0], ["id", 42]]]], (args) => {
+        define(vm, "needs-string", makeJSFun("needs-string", [["x", ["at", [7, 0], ["id", 42]]]], args => {
             if (typeof args.x !== "string") throw parameterError(args, "x", ErrnoCode.EINVAL, "x must be a string");
             return args.x;
         }, "test needs-string"));
