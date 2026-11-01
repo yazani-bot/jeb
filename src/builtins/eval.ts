@@ -177,6 +177,13 @@ export const B_atLocation = makeJSFun("at", [[true, "pos"], [true, "expr"]], ({ 
     typecheck(pos, [Array], "pos");
     // Remove self frame from here
     vm.popTraceback(false); // don't drop tail call, just in case this is in tail position
+    // The value this form produces is located at pos, even if evaluating
+    // expr makes no call at all (e.g. it is a constant): record that in
+    // the last-call slot, so a consumer resuming after the evaluation
+    // (such as argument binding) can still attribute the value to pos.
+    // If expr does make a call, that call's frame overwrites this when
+    // it pops, and it carries pos as its own location anyway.
+    vm.lastCall = { name: "at", location: pos as Location, count: 1, tail: false };
     vm.popCommand(); // This will be the tb_pop pushed by apply above
     pushCommand(vm, OP_eval, pos as Location);
     return expr;
