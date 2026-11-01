@@ -185,7 +185,7 @@ export const B_atLocation = makeJSFun("at", [[true, "pos"], [true, "expr"]], ({ 
     `.macro (at location expr)
 ..param {opaque-id} location
 ..param {code} expr
-. Equivalent to \`expr\` as a normal [[eval]]uation, but inserts the metadata of \`location\` into the stack frame to identify the call site itself instead of just the thing that was called.`);
+. Equivalent to \`expr\` as a normal [[eval]]uation, but inserts the metadata of \`location\` into the stack frame to identify the call site itself instead of just the thing that was called. \`at\` frames never appear in tracebacks.`);
 export const B_splat = makeJSFun("splat", ["value", ["kw", false]], ({ value, kw }) => new SplatArg(value, withType(kw, ["boolean"], "kw")),
     `.func (splat arg kw)
 ..param {any[] | object} arg - iterable or object to unpack
